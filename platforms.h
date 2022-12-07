@@ -104,9 +104,8 @@ struct MeshTerrain
     }
     glm::vec2 getPathEnd(const glm::vec2& start, const glm::vec2& end);
     glm::vec4 getPathEnd(const glm::vec4& start, const glm::vec4& end);
-    float getHeight(float x, int index); //height of the tile at the index. This returns the actual height (distance from teh top of the tile) not the y at the x of that tile
-    float getHeight(const glm::vec2& point); //get the highest y at the corresponding tile
-    bool onGround(const glm::vec4& rect);
+    float getHeight(const glm::vec2& point, const glm::vec2& gravity = {0,1}); //get the highest y at the corresponding tile
+    bool onGround(const glm::vec4& rect, const glm::vec2& gravity = {0,1}); //determines if a rect is on the ground based on the direction of gravity
     bool inWall(const glm::vec2& p1, const glm::vec2& p2);
     bool inWall(const glm::vec2& p1);
     bool inWall(const glm::vec4& rect);

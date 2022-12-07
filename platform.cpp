@@ -222,13 +222,14 @@ glm::vec2 MeshTerrain::getPathEnd(const glm::vec2& start, const glm::vec2& end)
         {
             if (FLOAT_COMPARE(start.y,tileRect.y + tileRect.a,3,<) && FLOAT_COMPARE(start.y,tileRect.y,3,>)) //line intersects with one of the left or right sides of the tile
             {
-                finalEnd.x = tileRect.x + (tileRect.z)*(start.x > end.x) +  (start.x > end.x)*2 - 1; //the << 1 - 1 moves our x 1 unit to the left or right depending on if we are moving to the right or left
-                finalEnd.y = start.y + (finalEnd.x - start.x)/(end.x - start.x)*(end.y - start.y); //don't gotta worry abou end.x == start.x because it would be impossible for a vertical line to intersect with the sides of a rectangle
+                finalEnd.x = tileRect.x + (tileRect.z + 2)*(start.x > end.x) - 1; //the + 2 - 1 moves our x 1 unit to the left or right depending on if we are moving to the right or left
+                finalEnd.y = end.x == start.x ? start.y : start.y + (finalEnd.x - start.x)/(end.x - start.x)*(end.y - start.y);
+
             }
             else //otherwise, we intersect with top or bottom of tile
             {
-                finalEnd.y = tileRect.y + (tileRect.a)*(start.y > end.y) + ((start.y > end.y)*2 - 1);
-                finalEnd.x = start.x + (finalEnd.y - start.y)/(end.y - start.y)*(end.x - start.x);
+                finalEnd.y = tileRect.y + (tileRect.a)*(start.y > end.y); //we don't move +1 or -1 here because its kind of unnecessary. if moving down, getheight handles that and if going up, being +1 actually makes us repeatedly hit the block above us
+                finalEnd.x = end.y == start.y ? start.x : start.x + (finalEnd.y - start.y)/(end.y - start.y)*(end.x - start.x);
             }
             break;
         }
@@ -254,35 +255,40 @@ glm::vec4 MeshTerrain::getPathEnd(const glm::vec4& start, const glm::vec4& end)
 {
     //assumes start and end have the same dimensions
 
-    bool goingRight = end.x > start.x;
-    bool goingDown = end.y > start.y;
-
-    float x,y;
-    if (goingRight)
+    float x = end.x,y = end.y;
+    if (start.x != end.x )
     {
-        x = std::min(getPathEnd({start.x + start.z,start.y},{end.x + end.z,start.y}).x,
-                    getPathEnd({start.x + start.z, start.y + start.a},{end.x + end.z, start.y + start.a}).x) - start.z;
+        bool goingRight = end.x > start.x;
+        if (goingRight)
+        {
+            x = std::min(getPathEnd({start.x + start.z,start.y},{end.x + end.z,start.y}).x,
+                        getPathEnd({start.x + start.z, start.y + start.a},{end.x + end.z, start.y + start.a}).x) - start.z;
+        }
+        else
+        {
+            x = std::max(getPathEnd({start.x,start.y},{end.x,start.y}).x,
+                        getPathEnd({start.x , start.y + start.a},{end.x, start.y + start.a}).x);
+        }
     }
-    else
+    if (start.y != end.y)
     {
-        x = std::max(getPathEnd({start.x,start.y},{end.x,start.y}).x,
-                    getPathEnd({start.x , start.y + start.a},{end.x, start.y + start.a}).x);
-    }
-    if (goingDown)
-    {
-        y = std::min(getPathEnd({start.x, start.y + start.a},{start.x, end.y + end.a}).y,
-                     getPathEnd({start.x + start.z, start.y + start.a},{start.x + start.z, end.y + end.a}).y) - start.a;
-    }
-    else
-    {
-        y = std::max(getPathEnd({start.x,start.y},{start.x,end.y}).y,
-                    getPathEnd({start.x +start.z, start.y},{start.x + start.z, end.y}).y);
+        bool goingDown = end.y > start.y;
+         if (goingDown)
+        {
+            y = std::min(getPathEnd({start.x, start.y + start.a},{start.x, end.y + end.a}).y,
+                         getPathEnd({start.x + start.z, start.y + start.a},{start.x + start.z, end.y + end.a}).y) - start.a;
+        }
+        else
+        {
+            y = std::max(getPathEnd({start.x,start.y},{start.x,end.y}).y,
+                        getPathEnd({start.x +start.z, start.y},{start.x + start.z, end.y}).y);
+        }
     }
     //printRect(glm::vec4(start.x,start.y,x,y));
     return glm::vec4(x,y,end.z,end.a);
 }
 
-float MeshTerrain::getHeight(const glm::vec2& point)
+float MeshTerrain::getHeight(const glm::vec2& point, const glm::vec2& gravity)
 {
     float height = 0;
     int index = pointToIndex(point);
@@ -294,7 +300,7 @@ float MeshTerrain::getHeight(const glm::vec2& point)
     {
     case EMPTY: //if tile is empty, we don't do anything unless there is a non-empty tile directly below it, in which case we use the height of tha ttile
         {
-            glm::vec2 below = {point.x,point.y + space}; //the point in the tile above us
+            glm::vec2 below = point + (float)space*gravity; //the point in the tile below us
             if (index >= vertTiles*horizTiles || tiles[pointToIndex(below)] == EMPTY) //if there are no tile below or it's empty ...
             {
                 return point.y; //... don't change y
@@ -307,7 +313,7 @@ float MeshTerrain::getHeight(const glm::vec2& point)
         }
     case FULL:
         {
-            glm::vec2 above = {point.x,point.y - space}; //the point in the tile above us
+            glm::vec2 above = point - (float)space*gravity; //the point in the tile above us
             if (index < horizTiles || tiles[pointToIndex(above)] == EMPTY) //if there are no tile above or it's empty ...
             {
                 height = 0; //... our y is the y of the tile
@@ -332,9 +338,9 @@ float MeshTerrain::getHeight(const glm::vec2& point)
     return tileRect.y + height;
 }
 
-bool MeshTerrain::onGround(const glm::vec4& rect)
+bool MeshTerrain::onGround(const glm::vec4& rect, const glm::vec2& gravity)
 {
-    return inWall(glm::vec2(rect.x,rect.y + rect.a + 1),glm::vec2(rect.x + rect.z, rect.y + rect.a + 1));
+    return inWall(glm::vec2(rect.x,rect.y) + (rect.a + 1)*(gravity),glm::vec2(rect.x + rect.z, rect.y ) + (rect.a + 1)*(gravity));
 }
 
 bool MeshTerrain::inWall(const glm::vec2& point)

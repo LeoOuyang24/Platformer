@@ -15,4 +15,5 @@ public:
     bool isOnGround();
 };
 
+
 #endif // PLAYER_H_INCLUDED

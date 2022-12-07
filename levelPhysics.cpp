@@ -11,8 +11,8 @@ void LevelPhysicsComponent::update()
     {
         if (!entity->getComponent<PlayerMoveComponent>()->isOnGround())
         {
-            gravityComponent += Level::level.gravity;
-            addForce(Level::level.gravity);
+            gravityComponent += Level::level.gravMag*Level::level.gravity;
+            addForce(Level::level.gravMag*Level::level.gravity);
         }
         else
         {
@@ -25,3 +25,8 @@ void LevelPhysicsComponent::update()
 }
 
 Level Level::level;
+
+ForceVector Level::getGravity()
+{
+    return gravity;
+}
